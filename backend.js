@@ -38,11 +38,11 @@ const storage = multer.diskStorage({
 
 const uploadProfile = multer({ 
   storage: storage, 
-  limits: { fileSize: 2 * 1024 * 1024, files: 1 } // 2MB
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 } // 2MB
 });
 const upload = multer({ 
   storage: storage, 
-  limits: { fileSize: 2 * 1024 * 1024, files: 6 } // 2MB por arquivo
+  limits: { fileSize: 10 * 1024 * 1024, files: 6 } // 2MB por arquivo
 });
 
 // Middleware JWT
