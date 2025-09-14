@@ -35,7 +35,15 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
-const upload = multer({ storage: storage, limits: { files: 6 } });
+
+const uploadProfile = multer({ 
+  storage: storage, 
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 } // 2MB
+});
+const upload = multer({ 
+  storage: storage, 
+  limits: { fileSize: 2 * 1024 * 1024, files: 6 } // 2MB por arquivo
+});
 
 // Middleware JWT
 function authMiddleware(req, res, next) {
@@ -69,6 +77,7 @@ app.get('/professionals', authMiddleware, async (req, res) => {
       instagram: p.instagram,
       address: p.address,
       bio: p.bio,
+      profilePhoto: p.profilePhoto,
       photos: (p.photos || []).map(photo => ({ url: photo.url }))
     })));
   } catch (err) {
@@ -93,6 +102,7 @@ app.get('/professionals/:id', authMiddleware, async (req, res) => {
     instagram: profissional.instagram,
     address: profissional.address,
     bio: profissional.bio,
+    profilePhoto: profissional.profilePhoto,
     photos: (profissional.photos || []).map(photo => ({ url: photo.url }))
   });
 });
@@ -117,6 +127,15 @@ app.post('/auth/register-professional', async (req, res) => {
     console.error("Erro ao cadastrar o profisional:", err);
     res.status(500).json({ error: 'Erro ao criar profissional.' });
   }
+});
+
+// Upload foto de perfil do profissional
+app.post('/professionals/:id/profile-photo', authMiddleware, uploadProfile.single('profilePhoto'), async (req, res) => {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada.' });
+  const url = `/uploads/${id}/${req.file.filename}`;
+  await Professional.update({ profilePhoto: url }, { where: { id } });
+  res.json({ profilePhoto: url });
 });
 
 // POST /auth/login-professional (login profissional)
@@ -171,6 +190,15 @@ app.post('/auth/register-client', async (req, res) => {
   }
 });
 
+// Upload foto de perfil do cliente
+app.post('/clients/:id/profile-photo', authMiddleware, uploadProfile.single('profilePhoto'), async (req, res) => {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada.' });
+  const url = `/uploads/clients/${id}/${req.file.filename}`;
+  await Client.update({ profilePhoto: url }, { where: { id } });
+  res.json({ profilePhoto: url });
+});
+
 // POST /auth/login-client (login cliente)
 app.post('/auth/login-client', async (req, res) => {
   const { email, password } = req.body;
@@ -180,6 +208,19 @@ app.post('/auth/login-client', async (req, res) => {
   }
   const token = jwt.sign({ id: cliente.id, type: 'client' }, SECRET, { expiresIn: '2h' });
   res.json({ cliente, token });
+});
+
+app.get('/clients/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const cliente = await Client.findByPk(id);
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  res.json({
+    id: cliente.id,
+    name: cliente.name,
+    whatsapp: cliente.whatsapp,
+    email: cliente.email,
+    profilePhoto: cliente.profilePhoto // retorna a foto de perfil
+  });
 });
 
 // Servir arquivos de upload

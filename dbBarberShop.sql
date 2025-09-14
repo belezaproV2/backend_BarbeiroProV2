@@ -21,6 +21,7 @@ CREATE TABLE Clients (
     whatsapp VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    profilePhoto VARCHAR(255),
     createdAt DATETIME NOT NULL,
     updatedAt DATETIME NOT NULL
 );
@@ -35,3 +36,4 @@ CREATE TABLE Photos (
 );
 
 ALTER TABLE Professionals ADD COLUMN profession VARCHAR(255) NOT NULL;
+ALTER TABLE Professionals ADD COLUMN profilePhoto VARCHAR(255);

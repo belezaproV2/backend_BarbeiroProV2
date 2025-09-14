@@ -22,6 +22,7 @@ const Professional = sequelize.define('Professional', {
   instagram: { type: DataTypes.STRING },
   address: { type: DataTypes.STRING },
   bio: { type: DataTypes.TEXT },
+  profilePhoto: { type: DataTypes.STRING },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password: { type: DataTypes.STRING, allowNull: false }
 }, { timestamps: true });
@@ -38,6 +39,7 @@ Photo.belongsTo(Professional);
 const Client = sequelize.define('Client', {
   name: { type: DataTypes.STRING, allowNull: false },
   whatsapp: { type: DataTypes.STRING, allowNull: false },
+  profilePhoto: { type: DataTypes.STRING },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password: { type: DataTypes.STRING, allowNull: false }
 }, { timestamps: true });
