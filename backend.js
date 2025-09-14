@@ -12,7 +12,7 @@ const app = express();
 app.use(cors({
   origin: (origin, callback) => {
     // Permite qualquer origem em produção, mas você pode restringir para domínios específicos:
-    const allowedOrigins = ['https://seudominio.com', 'https://www.seudominio.com'];
+    const allowedOrigins = ['https://click-beatiful.netlify.app'];
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
     callback(null, true);
