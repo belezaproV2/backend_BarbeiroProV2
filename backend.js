@@ -11,11 +11,9 @@ const cors = require('cors');
 const app = express();
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite qualquer origem em produção, mas você pode restringir para domínios específicos:
-    const allowedOrigins = ['https://click-beatiful.netlify.app'];
+    const allowedOrigins = ['http://127.0.0.1:5500', 'http://localhost:5500', 'http://localhost:3000'];
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
-    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -24,33 +22,53 @@ app.use(cors({
 
 app.use(express.json());
 
-// Configuração do Multer para upload de fotos
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let dir;
-    if (req.baseUrl.includes("/clients")) {
-      dir = path.join(__dirname, 'uploads', 'clients', req.params.id || 'temp');
-    } else {
-      dir = path.join(__dirname, 'uploads', req.params.id || 'temp');
-    }
+/* ==============================
+   Configuração do Multer
+   ============================== */
+
+// Storage para PROFISSIONAIS
+const storageProfessional = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads', 'professionals', req.params.id);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
 
-const uploadProfile = multer({ 
-  storage: storage, 
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 } // 10MB
-});
-const upload = multer({ 
-  storage: storage, 
-  limits: { fileSize: 10 * 1024 * 1024, files: 6 } // 10MB por arquivo
+// Storage para CLIENTES
+const storageClient = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads', 'clients', req.params.id);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 
-// Middleware JWT
+// Middlewares de upload
+const uploadProfessionalProfile = multer({ 
+  storage: storageProfessional, 
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }
+});
+
+const uploadProfessionalPhotos = multer({ 
+  storage: storageProfessional, 
+  limits: { fileSize: 10 * 1024 * 1024, files: 6 }
+});
+
+const uploadClientProfile = multer({ 
+  storage: storageClient, 
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }
+});
+
+/* ==============================
+   Middleware JWT
+   ============================== */
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ error: "Token ausente" });
@@ -62,6 +80,10 @@ function authMiddleware(req, res, next) {
     res.status(401).json({ error: "Token inválido" });
   }
 }
+
+/* ==============================
+   Rotas PROFISSIONAIS
+   ============================== */
 
 // GET /professionals (lista todos profissionais, exige token)
 app.get('/professionals', authMiddleware, async (req, res) => {
@@ -91,7 +113,7 @@ app.get('/professionals', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /professionals/:id (dados do profissional logado, exige token)
+// GET /professionals/:id
 app.get('/professionals/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const profissional = await Professional.findByPk(id, {
@@ -112,7 +134,7 @@ app.get('/professionals/:id', authMiddleware, async (req, res) => {
   });
 });
 
-// POST /auth/register-professional (cadastro profissional)
+// POST /auth/register-professional
 app.post('/auth/register-professional', async (req, res) => {
   const { name, profession, specialties, whatsapp, instagram, address, bio, email, password } = req.body;
   if (!name || !profession || !specialties || !whatsapp || !email || !password) {
@@ -135,15 +157,15 @@ app.post('/auth/register-professional', async (req, res) => {
 });
 
 // Upload foto de perfil do profissional
-app.post('/professionals/:id/profile-photo', authMiddleware, uploadProfile.single('profilePhoto'), async (req, res) => {
+app.post('/professionals/:id/profile-photo', authMiddleware, uploadProfessionalProfile.single('profilePhoto'), async (req, res) => {
   const { id } = req.params;
   if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada.' });
-  const url = `/uploads/${id}/${req.file.filename}`;
+  const url = `/uploads/professionals/${id}/${req.file.filename}`;
   await Professional.update({ profilePhoto: url }, { where: { id } });
   res.json({ profilePhoto: url });
 });
 
-// POST /auth/login-professional (login profissional)
+// POST /auth/login-professional
 app.post('/auth/login-professional', async (req, res) => {
   const { email, password } = req.body;
   const profissional = await Professional.findOne({ where: { email } });
@@ -154,8 +176,8 @@ app.post('/auth/login-professional', async (req, res) => {
   res.json({ profissional, token });
 });
 
-// POST /professionals/:id/photos (upload de fotos, exige token)
-app.post('/professionals/:id/photos', authMiddleware, upload.array('photos', 6), async (req, res) => {
+// POST /professionals/:id/photos
+app.post('/professionals/:id/photos', authMiddleware, uploadProfessionalPhotos.array('photos', 6), async (req, res) => {
   const { id } = req.params;
   try {
     const prof = await Professional.findByPk(id, { include: { model: Photo, as: 'photos' } });
@@ -163,12 +185,11 @@ app.post('/professionals/:id/photos', authMiddleware, upload.array('photos', 6),
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Nenhuma foto enviada.' });
     }
-    // Limitar a 6 fotos
     const existingCount = await Photo.count({ where: { ProfessionalId: id } });
     if (existingCount + req.files.length > 6) {
       return res.status(400).json({ error: 'Máximo de 6 fotos por profissional.' });
     }
-    const urls = req.files.map(f => `/uploads/${id}/${f.filename}`);
+    const urls = req.files.map(f => `/uploads/professionals/${id}/${f.filename}`);
     await Promise.all(urls.map(url => Photo.create({ url, ProfessionalId: id })));
     const allPhotos = await Photo.findAll({ where: { ProfessionalId: id } });
     res.json({ photoUrls: allPhotos.map(photo => photo.url) });
@@ -178,7 +199,11 @@ app.post('/professionals/:id/photos', authMiddleware, upload.array('photos', 6),
   }
 });
 
-// POST /auth/register-client (cadastro cliente)
+/* ==============================
+   Rotas CLIENTES
+   ============================== */
+
+// POST /auth/register-client
 app.post('/auth/register-client', async (req, res) => {
   const { name, whatsapp, email, password } = req.body;
   if (!name || !whatsapp || !email || !password) {
@@ -196,7 +221,7 @@ app.post('/auth/register-client', async (req, res) => {
 });
 
 // Upload foto de perfil do cliente
-app.post('/clients/:id/profile-photo', authMiddleware, uploadProfile.single('profilePhoto'), async (req, res) => {
+app.post('/clients/:id/profile-photo', authMiddleware, uploadClientProfile.single('profilePhoto'), async (req, res) => {
   const { id } = req.params;
   if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada.' });
   const url = `/uploads/clients/${id}/${req.file.filename}`;
@@ -204,7 +229,7 @@ app.post('/clients/:id/profile-photo', authMiddleware, uploadProfile.single('pro
   res.json({ profilePhoto: url });
 });
 
-// POST /auth/login-client (login cliente)
+// POST /auth/login-client
 app.post('/auth/login-client', async (req, res) => {
   const { email, password } = req.body;
   const cliente = await Client.findOne({ where: { email } });
@@ -215,6 +240,7 @@ app.post('/auth/login-client', async (req, res) => {
   res.json({ cliente, token });
 });
 
+// GET /clients/:id
 app.get('/clients/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const cliente = await Client.findByPk(id);
@@ -224,11 +250,13 @@ app.get('/clients/:id', authMiddleware, async (req, res) => {
     name: cliente.name,
     whatsapp: cliente.whatsapp,
     email: cliente.email,
-    profilePhoto: cliente.profilePhoto // retorna a foto de perfil
+    profilePhoto: cliente.profilePhoto
   });
 });
 
-// Servir arquivos de upload
+/* ==============================
+   Arquivos estáticos
+   ============================== */
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const PORT = process.env.PORT || 3000;
