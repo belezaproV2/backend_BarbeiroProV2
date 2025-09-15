@@ -27,7 +27,12 @@ app.use(express.json());
 // Configuração do Multer para upload de fotos
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = path.join(__dirname, 'uploads', req.params.id || 'temp');
+    let dir;
+    if (req.baseUrl.includes("/clients")) {
+      dir = path.join(__dirname, 'uploads', 'clients', req.params.id || 'temp');
+    } else {
+      dir = path.join(__dirname, 'uploads', req.params.id || 'temp');
+    }
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -38,11 +43,11 @@ const storage = multer.diskStorage({
 
 const uploadProfile = multer({ 
   storage: storage, 
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 } // 2MB
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 } // 10MB
 });
 const upload = multer({ 
   storage: storage, 
-  limits: { fileSize: 10 * 1024 * 1024, files: 6 } // 2MB por arquivo
+  limits: { fileSize: 10 * 1024 * 1024, files: 6 } // 10MB por arquivo
 });
 
 // Middleware JWT
